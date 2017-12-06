@@ -90,6 +90,12 @@ function dispatch(obj,varargin)
                 fprintf('Error Parsing Trial %d\n',obj.n_start_trials);
                 fprintf('Someting Wrong in the TrialComplete Section\n')
             end
+            try
+                obj.saveTrial();
+            catch
+                fprintf('Error Parsing Trial %d\n',obj.n_start_trials);
+                fprintf('Someting Wrong in the saveTrial Section\n')
+            end
             if obj.stop_flag
                 stop_flag = 1;
             end

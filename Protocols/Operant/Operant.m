@@ -26,7 +26,6 @@ classdef Operant < DefaultObj
         %RemindingStage=nan;
         %RemindingTrial=0;
         valve_time
-        hit_flag
     end
     
     methods
@@ -43,6 +42,8 @@ classdef Operant < DefaultObj
         end
         function obj=PreparNexrTrial(obj)
             obj.ITI=10;
+            obj.viol=0;
+            obj.RT=0;
             switch obj.settings.stage{1}
                 case 'reward_train'
                     obj.pokes = {'BotC'};
@@ -55,18 +56,18 @@ classdef Operant < DefaultObj
         function obj=RunTrial(obj)
             fs = 44100;
             global s
-            fprintf('RunTrial\n')
+            %fprintf('RunTrial\n')
             event.timeout=[];
             event.preinit=[];
             %target_port = 'MidC';
             state = 'pre_init';
-            obj.hit_flag=0;
+            obj.hit=0;
             trial_stop=0;
             %stage=obj.saveload.stage;
             while ~trial_stop && ~obj.stop_flag
                 switch state
                     case 'pre_init'
-                        fprintf('pre_init State\n')
+                        %fprintf('pre_init State\n')
                         fwrite(s,bin2dec('00000000'));
                         %pause(0.1);
                         tic;
@@ -94,7 +95,9 @@ classdef Operant < DefaultObj
                             state = 'end_state';
                         end
                     case 'wait_for_poke'
-                        fprintf('Wait_for_Poke State\n')
+                        obj.peh.wait_for_poke=[];
+                        obj.peh.wait_for_poke=[obj.peh.wait_for_poke;now,nan];
+                        %fprintf('Wait_for_Poke State\n')
                         if strcmp(obj.pokes,'MidC')
                             fwrite(s,bin2dec('00110000')); %turn MidC light on
                         elseif strcmp(obj.pokes,'TopC')
@@ -126,8 +129,11 @@ classdef Operant < DefaultObj
                         else
                             state = 'end_state';
                         end
+                        obj.peh.wait_for_poke(end,end)=now;
                     case 'pre_reward_state'
-                        fprintf('Pre_Reward_State\n')
+                        %fprintf('Pre_Reward_State\n')
+                        obj.peh.pre_reward_state=[];
+                        obj.peh.pre_reward_state=[obj.peh.pre_reward_state;now,nan];
                         fwrite(s,bin2dec('00001000')); %turn BotC light on
                         sound(obj.Sounds.HitSound,fs);
                         tic;
@@ -146,8 +152,9 @@ classdef Operant < DefaultObj
                         else
                             state = 'end_state';
                         end
+                        obj.peh.pre_reward_state(end,end)=now;
                     case 'reward_state'
-                        fprintf('Reward State\n')
+                        %fprintf('Reward State\n')
                         fwrite(s,bin2dec('00001000')); %turn BotC light on
                         reward_time=now;
                         tic;
@@ -166,13 +173,13 @@ classdef Operant < DefaultObj
                                 if (now-reward_time)*24*60*60<1
                                     fwrite(s,bin2dec('00000100')); %turn water on
                                 else
-                                    obj.hit_flag=1;
+                                    obj.hit=1;
                                     fwrite(s,bin2dec('00000000')); %turn water off
                                 end
                             elseif action==0
-                                if obj.hit_flag
+                                if obj.hit
                                     reward_stop=1;
-                                    fprintf('now go to ITI State\n')
+                                    %fprintf('now go to ITI State\n')
                                 else
                                     fwrite(s,bin2dec('00001000')); %turn BotC light on
                                 end
@@ -188,6 +195,7 @@ classdef Operant < DefaultObj
                         event.timeout=1;
                     case 'violation_state'
                         sound(obj.Sounds.MissSound,fs);
+                        obj.viol=1;
                         state = 'ITI';
                         tic;
                         while toc<5 && ~obj.stop_flag
@@ -197,7 +205,7 @@ classdef Operant < DefaultObj
                                 obj.stop_flag=1;
                             end
                         end
-                        fprintf('Re-enterning ITI\n')
+                        %fprintf('Re-enterning ITI\n')
                     case 'ITI'
                         fwrite(s,bin2dec('00000000'));
                         ITI_duration=obj.ITI;
@@ -210,7 +218,7 @@ classdef Operant < DefaultObj
                             end
                             if (action~=0 && action < 10)
                                 state = 'violation_state';
-                                fprintf('Violation State\n')
+                                %fprintf('Violation State\n')
                             elseif action>100
                                 obj.stop_flag = 1;
                                 break;
@@ -229,11 +237,16 @@ classdef Operant < DefaultObj
             fwrite(s,bin2dec('00000011'));
         end
         function obj=TrialComplete(obj)
-            if obj.hit_flag
+            if obj.hit
                 obj.good_trials=obj.good_trials+1;
+                obj.reward=1;
+                obj.RT=(obj.peh.wait_for_poke(end,2)-obj.peh.wait_for_poke(end,2))*24*60*60;
+            else
+                obj.reward=0;
+                obj.RT=nan;
             end
             obj.trials_in_this_stage = obj.trials_in_this_stage+1;
-            obj.hit_history = [obj.hit_history,obj.hit_flag];
+            obj.hit_history = [obj.hit_history,obj.hit];
             ndt = obj.n_done_trials;
             nts = obj.trials_in_this_stage;
             if nts>30
@@ -241,7 +254,7 @@ classdef Operant < DefaultObj
             else
                 pref_30=0.01;
             end
-            fprintf('Trials: %d, Stage: %d, GootTrials: %d Hit: %d, Perfmance: %.4f \n',ndt+1,obj.saveload.stage,obj.good_trials,obj.hit_flag,pref_30)
+            fprintf('Trials: %d, Stage: %d, GootTrials: %d Hit: %d, Perfmance: %.4f \n',ndt+1,obj.saveload.stage,obj.good_trials,obj.hit,pref_30)
             switch obj.settings.stage{1}
                 case 'reward_train'
                     if pref_30>0.75
@@ -256,6 +269,35 @@ classdef Operant < DefaultObj
                         obj.trials_in_this_stage = 0;
                     end
                 case 'double_poke'
+            end
+        end
+        function savedata = getProtoTrialData(obj)
+            savedata.trials_in_this_stage=obj.trials_in_this_stage;
+            savedata.trialtime=datestr(now,0);
+            switch obj.settings.stage{1}
+                case 'reward_train'
+                    savedata.target_port_1='BotC';
+                    savedata.target_port_2='';
+                    if obj.hit
+                        savedata.choice_port_1='BotC';
+                    else
+                        savedata.choice_port_1='';
+                    end
+                    savedata.choice_port_2='';
+                case 'single_poke'
+                    savedata.target_port_1=obj.pokes{1};
+                    savedata.target_port_2='';
+                    if obj.hit
+                        savedata.choice_port_1=obj.pokes{1};
+                    else
+                        savedata.choice_port_1='';
+                    end
+                    savedata.choice_port_2='';
+                case 'double_poke'
+                    savedata.target_port_1='';
+                    savedata.choice_port_1='';
+                    savedata.target_port_2='';
+                    savedata.choice_port_2='';
             end
         end
     end
