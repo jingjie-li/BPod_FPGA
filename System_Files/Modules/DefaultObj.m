@@ -58,6 +58,28 @@ classdef (Abstract) DefaultObj < handle
             end
         end
         function obj=saveSession(obj)
+            sessid=obj.saveload.sessid;
+            subjid=obj.saveload.sessid;
+            current_path=pwd;
+            cd('/Users/apple/Documents/MATLAB/BPOD_FPGA/Data/Subj_Data')
+            load('subj.mat');
+            tar_subj_data = subj.subj_info(subj.subj_info.Subjid == subjid,:);
+            species=tar_subj_data.species{1};
+            rig=1; % adjuest rig that train the subject
+            starttime=obj.saveload.starttime;
+            endtime=datestr(now,31);
+            protocol=obj.settings.protocol;
+            startstage=obj.saveload.stage;
+            endstage=obj.saveload.stage;
+            trials=obj.n_done_trials;
+            base_reward=5;
+            profits=obj.good_trials*base_reward;
+            hits=obj.good_trials;
+            viols=sum(obj.violation_history);
+            mass=input('please input the weight result: ');
+            insertSessData( sessid,subjid,species,rig,starttime,endtime,...
+            protocol,startstage,endstage,trials,profits,hits,viols,mass );
+            cd(current_path)
         end
         function obj=saveSettings(obj)
         end

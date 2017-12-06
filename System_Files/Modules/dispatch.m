@@ -93,7 +93,7 @@ function dispatch(obj,varargin)
                 fprintf('Someting Wrong in the TrialComplete Section\n')
             end
             try
-                if ~obj.stop_flag
+                if ~obj.stop_flag && ~test
                     obj.saveTrial();
                 end
             catch

@@ -43,7 +43,14 @@ if ~test
     stage_name = expgroup_table.stage_name(stage);
 else
     expgroup_table = subj.expgroup_info(strcmp(subj.expgroup_info.protocol,protocol),:);
-    stage_name = expgroup_table.stage_name(stage);
+    try
+        stage_name = expgroup_table.stage_name(stage);
+    catch
+        fprintf('You may entered a wrong protocol name ? Trying ''Operant'' ?\n');
+        protocol = 'Operant';
+        expgroup_table = subj.expgroup_info(strcmp(subj.expgroup_info.protocol,protocol),:);
+        stage_name = expgroup_table.stage_name(stage);
+    end
 end
 
 
