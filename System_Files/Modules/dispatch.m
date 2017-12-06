@@ -84,14 +84,18 @@ function dispatch(obj,varargin)
                 fprintf('Someting Wrong in the RunTrial Section\n')
             end
             try
-                obj.TrialComplete();
-                obj.n_done_trials = obj.n_done_trials + 1;
+                if ~obj.stop_flag
+                    obj.TrialComplete();
+                    obj.n_done_trials = obj.n_done_trials + 1;
+                end
             catch
                 fprintf('Error Parsing Trial %d\n',obj.n_start_trials);
                 fprintf('Someting Wrong in the TrialComplete Section\n')
             end
             try
-                obj.saveTrial();
+                if ~obj.stop_flag
+                    obj.saveTrial();
+                end
             catch
                 fprintf('Error Parsing Trial %d\n',obj.n_start_trials);
                 fprintf('Someting Wrong in the saveTrial Section\n')
@@ -101,7 +105,7 @@ function dispatch(obj,varargin)
             end
         case 'endsession'
             try
-            obj.saveSession();
+                 obj.saveSession();
             catch
                 fprintf('Error in saveSession section \n')
             end

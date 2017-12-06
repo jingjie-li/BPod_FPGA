@@ -149,8 +149,11 @@ classdef Operant < DefaultObj
                         if action==1
                             state = 'reward_state';
                         elseif toc>29
-                        else
+                            state = 'timeout';
+                        elseif action>100
                             state = 'end_state';
+                        else 
+                            state = 'ITI';
                         end
                         obj.peh.pre_reward_state(end,end)=now;
                     case 'reward_state'
@@ -240,7 +243,14 @@ classdef Operant < DefaultObj
             if obj.hit
                 obj.good_trials=obj.good_trials+1;
                 obj.reward=1;
-                obj.RT=(obj.peh.wait_for_poke(end,2)-obj.peh.wait_for_poke(end,2))*24*60*60;
+                switch obj.settings.stage{1}
+                    case 'reward_train'
+                        obj.RT=(obj.peh.pre_reward_state(end,2)-obj.peh.pre_reward_state(end,2))*24*60*60;
+                    case 'single_poke'
+                        obj.RT=(obj.peh.wait_for_poke(end,2)-obj.peh.wait_for_poke(end,2))*24*60*60;
+                    case 'double_poke'
+                        obj.RT=0;
+                end
             else
                 obj.reward=0;
                 obj.RT=nan;

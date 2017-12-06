@@ -8,10 +8,9 @@ try
     cd('/Users/apple/Documents/MATLAB/BPOD_FPGA/Data/Sess_Data')
     load('proto.mat');
     eval(sprintf('trialid=max(proto.%s.trialid)+1',protocol))
-    %trialid = max(sess_table.sessid)+1;
     new_data=cell2table([trialid,trial_data],'Variablename',['trialid',save_info]);
     eval(sprintf('proto.%s=[proto.%s;new_data]',protocol,protocol))
-    proto.operant=[proto.operant;new_data];
+    %proto.operant=[proto.operant;new_data];
     save('proto.mat','proto');
 catch
     fprintf('Error Parsing Saving Trial Data\n')
