@@ -24,3 +24,6 @@ For testing, you can call run-exp(Protocol Name,subjid,'test',1,'stage',1)
 In basys 2 FPGA, this bottom is N3 switch
 
 ### 5) Call close-bpod to close connection
+
+## How it works?
+when we call run-exp function, it will 

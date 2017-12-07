@@ -43,7 +43,7 @@ function dispatch(obj,varargin)
                 obj.settings.protocol = protocol;
                 obj.settings.stage = stage_name;
                 saveload.subjid = [];
-                saveload.stage = [];
+                saveload.stage = 1;
                 saveload.protocol = [];
                 saveload.start_time = [];
                 sessid =[];    

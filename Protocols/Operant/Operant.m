@@ -142,8 +142,9 @@ classdef Operant < DefaultObj
                         sound(obj.Sounds.HitSound,fs);
                         tic;
                         action = 0;
+                        %data_to_port=bin2dec('00001000');
                         while toc<30 && action~=1 && ~obj.stop_flag
-                            fwrite(s,bin2dec('00001000'));
+                            %fwrite(s,bin2dec('00001000'));
                             flushinput(s)
                             action = fread(s, 1);
                             pause(0.02);
@@ -168,6 +169,7 @@ classdef Operant < DefaultObj
                         tic;
                         action = 0;
                         reward_stop=0;
+                        data_to_port=bin2dec('00001000');
                         while toc<30 && ~obj.stop_flag && ~reward_stop
                             flushinput(s)
                             action = fread(s, 1);
@@ -179,20 +181,32 @@ classdef Operant < DefaultObj
                                 obj.stop_flag = 1;
                             elseif action==1
                                 if (now-reward_time)*24*60*60<1
-                                    fwrite(s,bin2dec('00000100')); %turn water on
+                                    if data_to_port~=bin2dec('00000100')
+                                        fwrite(s,bin2dec('00000100')); %turn water on
+                                        data_to_port=bin2dec('00000100');
+                                    end
                                 else
                                     obj.hit=1;
-                                    fwrite(s,bin2dec('00000000')); %turn water off
+                                    if data_to_port~=bin2dec('00000000')
+                                        fwrite(s,bin2dec('00000000')); %turn water off
+                                        data_to_port=bin2dec('00000000');
+                                    end
                                 end
                             elseif action==0
                                 if obj.hit
                                     reward_stop=1;
                                     %fprintf('now go to ITI State\n')
                                 else
-                                    fwrite(s,bin2dec('00001000')); %turn BotC light on
+                                    if data_to_port~=bin2dec('00001000')
+                                        fwrite(s,bin2dec('00001000')); %turn BotC light on
+                                        data_to_port=bin2dec('00001000');
+                                    end
                                 end
                             else
-                                fwrite(s,bin2dec('00000000'));
+                                if data_to_port~=bin2dec('00000000')
+                                    fwrite(s,bin2dec('00000000'));
+                                    data_to_port=bin2dec('00000000');
+                                end
                                 reward_stop=1;
                                 state = 'violation_state';
                             end

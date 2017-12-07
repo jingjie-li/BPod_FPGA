@@ -6,6 +6,7 @@ function  start_bpod( port )
 %   by Jingjie Li  jl9249@nyu.edu
 if nargin==0
     port = '/dev/tty.wchusbserial1420';
+    %port = '/dev/tty.usbserial';
 end
 global s
 s = serial(port);
@@ -13,7 +14,9 @@ set(s,'BaudRate',9600,'StopBits',1,'Parity','none','DataBits',8,'InputBufferSize
 s.BytesAvailableFcnCount = 1; 
 try
     fopen(s);
+    fwrite(s,bin2dec('00000000'));
     fprintf('Oh, Hey, I guess it works\n')
+    fwrite(s,bin2dec('00000011'));
 catch
     fprintf('Oh! We cannot open the port %s\n',port)
     fprintf('Maybe there is something connection issue\n')
