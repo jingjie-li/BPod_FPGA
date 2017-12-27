@@ -14,7 +14,7 @@ set(s,'BaudRate',9600,'StopBits',1,'Parity','none','DataBits',8,'InputBufferSize
 s.BytesAvailableFcnCount = 1; 
 try
     fopen(s);
-    fwrite(s,bin2dec('00000000'));
+    fwrite(s,bin2dec('00000100'));
     fprintf('Oh, Hey, I guess it works\n')
     fwrite(s,bin2dec('00000011'));
 catch

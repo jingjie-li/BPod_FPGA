@@ -38,9 +38,22 @@ classdef Operant < DefaultObj
         end
         function obj=useSettings(obj)
             obj.settings.reward=20;
+            obj.settings.ITI_min = 10;
+            obj.settings.ITI_max = 60;
+            obj.hit=0;
             %obj.settings.stage='reward_train';
         end
         function obj=PreparNexrTrial(obj)
+            if ~obj.hit
+                obj.settings.ITI_min = obj.settings.ITI_min+.5;
+                obj.settings.ITI_max = obj.settings.ITI_max+1;
+            else
+                obj.settings.ITI_min = obj.settings.ITI_min-.2;
+                obj.settings.ITI_max = obj.settings.ITI_max-.5;
+            end
+            obj.settings.ITI_min = utils.enforce_range(obj.settings.ITI_min,2,30);
+            obj.settings.ITI_max = utils.enforce_range(obj.settings.ITI_max,5,60);
+            obj.ITI = rand*(obj.settings.ITI_max-obj.settings.ITI_min)+obj.settings.ITI_min;
             obj.ITI=10;
             obj.viol=0;
             obj.RT=0;
@@ -67,8 +80,8 @@ classdef Operant < DefaultObj
             while ~trial_stop && ~obj.stop_flag
                 switch state
                     case 'pre_init'
-                        %fprintf('pre_init State\n')
-                        fwrite(s,bin2dec('00000000'));
+                        fprintf('Trial pre_init\n')
+                        fwrite(s,bin2dec('00000100'));
                         %pause(0.1);
                         tic;
                         obj.stop_flag=0;
@@ -99,22 +112,25 @@ classdef Operant < DefaultObj
                         obj.peh.wait_for_poke=[obj.peh.wait_for_poke;now,nan];
                         %fprintf('Wait_for_Poke State\n')
                         if strcmp(obj.pokes,'MidC')
-                            fwrite(s,bin2dec('00110000')); %turn MidC light on
+                            fwrite(s,bin2dec('00110100')); %turn MidC light on
                         elseif strcmp(obj.pokes,'TopC')
-                            fwrite(s,bin2dec('11000000')); %turn TopC light on
+                            fwrite(s,bin2dec('11000100')); %turn TopC light on
                         else
-                            fwrite(s,bin2dec('00001000')); %turn BotC light on
+                            fwrite(s,bin2dec('00001100')); %turn BotC light on
                         end
                         tic;
                         action = 0;
                         if strcmp(obj.pokes,'MidC')
-                            tar_num = 2;
+                            %tar_num = 2;
+                            tar_num = 1;
                         elseif strcmp(obj.pokes,'TopC')
+                            %tar_num = 4;
                             tar_num = 4;
                         else
-                            tar_num = 1;
+                            %tar_num = 1;
+                            tar_num = 2;
                         end
-                        while toc<30 && action~=tar_num && ~obj.stop_flag
+                        while toc<300 && action~=tar_num && ~obj.stop_flag
                             flushinput(s)
                             action = fread(s, 1);
                             pause(0.02);
@@ -126,7 +142,7 @@ classdef Operant < DefaultObj
                         end
                         if action==tar_num
                             state = 'pre_reward_state';
-                        elseif toc>29
+                        elseif toc>299
                             state = 'timeout';
                         elseif obj.stop_flag
                             state = 'end_state';
@@ -138,12 +154,12 @@ classdef Operant < DefaultObj
                         %fprintf('Pre_Reward_State\n')
                         obj.peh.pre_reward_state=[];
                         obj.peh.pre_reward_state=[obj.peh.pre_reward_state;now,nan];
-                        fwrite(s,bin2dec('00001000')); %turn BotC light on
+                        fwrite(s,bin2dec('00001100')); %turn BotC light on
                         sound(obj.Sounds.HitSound,fs);
                         tic;
                         action = 0;
                         %data_to_port=bin2dec('00001000');
-                        while toc<30 && action~=1 && ~obj.stop_flag
+                        while toc<300 && action~=2 && ~obj.stop_flag
                             %fwrite(s,bin2dec('00001000'));
                             flushinput(s)
                             action = fread(s, 1);
@@ -152,9 +168,9 @@ classdef Operant < DefaultObj
                                 obj.stop_flag = 1;
                             end
                         end
-                        if action==1
+                        if action==2
                             state = 'reward_state';
-                        elseif toc>29
+                        elseif toc>299
                             state = 'timeout';
                         elseif action>100
                             state = 'end_state';
@@ -164,12 +180,16 @@ classdef Operant < DefaultObj
                         obj.peh.pre_reward_state(end,end)=now;
                     case 'reward_state'
                         %fprintf('Reward State\n')
-                        fwrite(s,bin2dec('00001000')); %turn BotC light on
+                        fwrite(s,bin2dec('00001100')); %turn BotC light on
                         reward_time=now;
                         tic;
                         action = 0;
                         reward_stop=0;
-                        data_to_port=bin2dec('00001000');
+                        water_time=0.5;
+                        reward_dur=0;
+                        %reward_base_time=0;
+                        entering_reward_flag=0;
+                        data_to_port=bin2dec('00001100');
                         while toc<30 && ~obj.stop_flag && ~reward_stop
                             flushinput(s)
                             action = fread(s, 1);
@@ -179,33 +199,39 @@ classdef Operant < DefaultObj
                             end
                             if action>100
                                 obj.stop_flag = 1;
-                            elseif action==1
-                                if (now-reward_time)*24*60*60<1
-                                    if data_to_port~=bin2dec('00000100')
-                                        fwrite(s,bin2dec('00000100')); %turn water on
-                                        data_to_port=bin2dec('00000100');
+                            elseif action==2
+                                if ~entering_reward_flag
+                                    reward_time=now;
+                                end
+                                entering_reward_flag=1;
+                                if reward_dur*24*60*60<water_time
+                                    reward_dur = now-reward_time;
+                                    if data_to_port~=bin2dec('00000000')
+                                        fwrite(s,bin2dec('00000000')); %turn water on
+                                        data_to_port=bin2dec('00000000');
                                     end
                                 else
                                     obj.hit=1;
-                                    if data_to_port~=bin2dec('00000000')
-                                        fwrite(s,bin2dec('00000000')); %turn water off
-                                        data_to_port=bin2dec('00000000');
+                                    if data_to_port~=bin2dec('00000100')
+                                        fwrite(s,bin2dec('00000100')); %turn water off
+                                        data_to_port=bin2dec('0000100');
                                     end
                                 end
                             elseif action==0
+                                reward_time = now - reward_dur;
                                 if obj.hit
                                     reward_stop=1;
                                     %fprintf('now go to ITI State\n')
                                 else
-                                    if data_to_port~=bin2dec('00001000')
-                                        fwrite(s,bin2dec('00001000')); %turn BotC light on
-                                        data_to_port=bin2dec('00001000');
+                                    if data_to_port~=bin2dec('00001100')
+                                        fwrite(s,bin2dec('00001100')); %turn BotC light on
+                                        data_to_port=bin2dec('00001100');
                                     end
                                 end
                             else
-                                if data_to_port~=bin2dec('00000000')
-                                    fwrite(s,bin2dec('00000000'));
-                                    data_to_port=bin2dec('00000000');
+                                if data_to_port~=bin2dec('00000100')
+                                    fwrite(s,bin2dec('00000100'));
+                                    data_to_port=bin2dec('00000100');
                                 end
                                 reward_stop=1;
                                 state = 'violation_state';
@@ -218,7 +244,7 @@ classdef Operant < DefaultObj
                         state = 'ITI';
                         event.timeout=1;
                     case 'violation_state'
-                        fwrite(s,bin2dec('00000000'));
+                        fwrite(s,bin2dec('00000100'));
                         sound(obj.Sounds.MissSound,fs);
                         obj.viol=1;
                         state = 'ITI';
@@ -232,7 +258,7 @@ classdef Operant < DefaultObj
                         end
                         %fprintf('Re-enterning ITI\n')
                     case 'ITI'
-                        fwrite(s,bin2dec('00000000'));
+                        fwrite(s,bin2dec('00000100'));
                         ITI_duration=obj.ITI;
                         tic;
                         while toc<ITI_duration && ~strcmp(state,'violation_state') && ~obj.stop_flag
@@ -256,10 +282,10 @@ classdef Operant < DefaultObj
                         end
                     case 'end_state'
                         trial_stop=1;
-                        fwrite(s,bin2dec('00000011'));
+                        fwrite(s,bin2dec('00000111'));
                 end
             end
-            fwrite(s,bin2dec('00000011'));
+            fwrite(s,bin2dec('00000111'));
         end
         function obj=TrialComplete(obj)
             if obj.hit
